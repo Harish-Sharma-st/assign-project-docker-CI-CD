@@ -1,0 +1,45 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Build Docker image
+      run: docker build -t my-web-app .
+
+    - name: Log in to AWS ECR (optional)
+      uses: aws-actions/amazon-ecr-login@v2
+      with:
+        registry: <your-aws-account-id>.dkr.ecr.<your-region>.amazonaws.com
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Tag Docker image
+      run: |
+        docker tag my-web-app:latest ${{ secrets.AWS_REGISTRY_URL }}/my-web-app:latest
+
+    - name: Push Docker image to AWS ECR (optional)
+      run: |
+        docker push ${{ secrets.AWS_REGISTRY_URL }}/my-web-app:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy to AWS ECS
+      run: |
+        aws ecs update-service --cluster <your-cluster-name> --service <your-service-name> --force-new-deployment
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
